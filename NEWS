@@ -1,0 +1,222 @@
+24 September 2021 - mptcpd 0.8
+
+- The mptcpd library API now splits path management operations
+  specific to the in-kernel path manager found in the upstream Linux
+  kernel into a separate "mptcpd_kpm" API namespace to differentiate
+  ADD_ADDR and REMOVE_ADDR related operations between the in-kernel
+  and user space cases.  The operations for the two are different and
+  have different use cases.
+
+- Two new mptcpd command line arguments were added: "--addr-flags" and
+  "--notify-flags", along with the equivalent settings in the mptcpd
+  system configuration file (e.g., /etc/mptcpd/mptcpd.conf).
+  "addr-flags" are used when announcing an IP address.  Similar flags
+  are used by the "ip mptcp" sub-command.  See the ip-mptcp(8) and man
+  page for further details on these address related flags.
+  "notify-flags" provides for further control over how plugins are
+  notified of changes to local IP addresses.  See the mptcpd(8) man
+  page shipped with this mptcpd release for further details.
+
+- Improve the mptcpd "addr_adv" plugin by making it set suitable MPTCP
+  resource limits in the kernel, such as expanding the maximum number
+  of subflows to allow subflows associated with advertised IP
+  addresses to be created.
+
+- The mptcpd plugin directory name in the mptcpd system configuration
+  file may now be left empty to improve "multilib" support found in
+  some Linux distributions.  A compile-time default will be used if no
+  plugin directory name is found in the mptcpd system configuration
+  file or the mptcpd command line options.
+
+- Mptcpd command line options now properly take precedence over the
+  corresponding mptcpd system configuration setting.  This addresses
+  an issue that prevented mptcpd from starting if a required setting
+  was not specified in the mptcpd system configuration file even
+  though the same setting was configured through the mptcpd command
+  line.
+
+- A new "mptcpize" program was added that allows legacy TCP-only
+  applications to transparently use MPTCP by either of the following
+  approaches:
+    - leverage library interpositioning to transparently replace TCP
+      socket calls with their MPTCP counterparts.
+    - enable or disable TCP to MPTCP socket conversion through an
+      existing systemd unit file.
+
+- Build regressions against ELL versions 0.31 and 0.33 were
+  corrected.
+
+13 April 2021 - mptcpd 0.7
+
+- MPTCP path management generic netlink events recently added to the
+  upstream Linux kernel (v5.12) are now supported, and propagated to
+  mptcpd plugins.  The same API is also found in the multipath-tcp.org
+  kernel.  Differences between the two kernels are transparent to
+  mptcpd plugins.
+
+- Mptcpd now supports the upstream Linux kernel server-oriented
+  MPTCP_PM_CMD_SET_FLAGS generic netlink command through the new
+  mptcpd_pm_set_flags() function.  It allows the user to set MPTCP
+  flags for a specific local IP address.
+
+- An incorrect buffer size calculation when calling
+  mptcpd_pm_add_addr() when using an IPv6 addresses on platforms
+  running the upstream Linux kernel was corrected.
+
+- An "operation not supported" error that occurred when attempting to
+  retrieve MPTCP resource limits through the mptcpd_pm_get_limits()
+  function was fixed.
+
+- A network interface lookup problem in the "sspi" plugin was
+  corrected.
+
+- Building mptcpd against ELL 0.39 is now supported.
+
+25 January 2021 - mptcpd 0.6
+
+- Mptcpd now supports versions of the Embedded Linux Library (ELL)
+  greater than 0.33.
+
+- Plugins should use the new MPTCPD_PLUGIN_DEFINE() preprocessor macro
+  instead of L_PLUGIN_DEFINE().
+
+- A pointer to the mptcpd path manager object, i.e. struct mptcpd *pm,
+  is now passed to the plugin init and exit functions.  This allows
+  plugins to potentially perform mptcpd path manager related
+  operations during initialization and finalization.
+
+- Support for the MPTCP netlink path manager in the upstream Linux
+  kernel is now available.  A new set of path management command
+  functions corresponding to those available in the kernel netlink
+  path management API has been added to the `<mptcpd/path_manager.h>'
+  header.  The new functions allow plugins to retrieve IP address
+  information, flush addresses, and modify MPTCP resource limits.
+
+- The mptcpd_pm_add_addr() (formerly mptcpd_pm_send_addr()) and
+  mptcpd_pm_remove_addr() function parameters have been modified in
+  order to support both the upstream and multipath-tcp.org kernels.
+
+- Mptcpd path management command functions declared in
+  `<mptcpd/path_manager.h>' now return zero on success and -1 or an
+  errno on failure instead of a bool.
+
+- A MPTCP address ID manager "mptcpd_idm" interface was introduced
+  that mptcpd plugins may leverage to map an IP address to a MPTCP
+  address ID, as well as to track used and unused IDs.  The interface
+  is defined in the new `<mptcpd/id_manager.h>' header.
+
+- A new address advertising plugin, "addr_adv", has been added.  It
+  simply triggers a MPTCP ADD_ADDR when a new IP address is detected
+  by the mptcpd network monitor.  Similarly, a MPTCP REMOVE_ADDR is
+  triggered when an IP address is no longer available.
+
+- MPTCP netlink command error message logging was improved to be more
+  descriptive when possible.
+
+12 June 2020 - mptcpd 0.5
+
+- Test plugins are no longer installed when running "make install".  A
+  side benefit of the changes is that test plugins only build when the
+  test suite is built via "make check" or "make distcheck".  Libtool
+  relink warnings that occurred when building the tests have also been
+  addressed.
+
+- VPATH builds where the build directory and source directory
+  differ (e.g. "mkdir build; cd build; ../configure; make") now
+  succeed.
+
+21 May 2020 - mptcpd 0.4
+
+- Plugins may now inform peers that an address is no longer being
+  advertised through the new mptcpd_pm_remove_addr() function.  This
+  corresponds to the MPTCP protocol REMOVE_ADDR option.
+
+- Network monitoring related events are now propagated to plugins.
+  Events are triggered upon the addition, update, and removal of a
+  network interface (link), as well as the addition and removal of a
+  network address.  Plugins interested in receiving any of these
+  events need only implement the corresponding callback in the
+  `mptcpd_plugin_ops' API found in `<mptcpd/plugin.h>'.
+
+- Stub implementations for unused mptcpd plugin operations are no
+  longer needed.  Simply set the unused field in the
+  `mptcpd_plugin_ops' structure to NULL.
+
+18 December 2019 - mptcpd 0.3
+
+- This is the Multipath TCP Daemon beta release.
+
+- All known memory leaks have been fixed.
+
+- A potential security hole related to logging of MPTCP connection
+  tokens was closed.  Logging of MPTCP connection tokens no longer
+  occurs.
+
+- Support for compiler-based address, leak, and undefined behavior
+  sanitizers is now available, and may be enabled through
+  corresponding `configure' script options.  Run `./configure --help'
+  for the full list of options.
+
+- Diagnostic messages will be issued if the Linux kernel is not
+  properly configured to support a user space MPTCP path manager like
+  mptcpd.
+
+- Documentation on how to contribute to mptcpd is available in the
+  `CONTRIBUTING.md' file.
+
+- A pkg-config `mptcpd.pc' file is now generated and installed to
+  allow plugin developers to more easily obtain the necessary mptcpd
+  build related information, such as compiler and linker command line
+  flags.
+
+- The mptcpd plugin API dropped the mptcpd_addr type in favor of the
+  standard sockaddr family of structures.
+
+- Debugger-friendly optimization is now supported.
+
+- ELL 0.27 or better is now required due to changes in the ELL generic
+  netlink API.
+
+11 June 2019 - mptcpd 0.2a
+
+- This Multipath TCP Daemon alpha release replaces support for the
+  deprecated MPTCP generic netlink API with the one found in the
+  multipath-tcp.org kernel (0.95+), and has been verified to work with
+  that kernel.
+
+- Several actual and potential memory access violations were fixed in
+  the mptcpd network monitor, path manager, and "sspi" plugin.
+
+- The mptcp.service systemd service file now correctly grants the
+  necessary privilege (CAP_NET_ADMIN) for proper operation of the
+  mptcpd program.
+
+27 March 2019 - mptcpd 0.1a
+
+- This is the initial (alpha) release of the Multipath TCP Daemon
+  "mptcpd".  It implements MPTCP path management in the user space by
+  providing a framework that bridges user defined path management
+  strategies - i.e. mptcpd plugins - with the Linux kernel side MPTCP
+  implementation over a generic netlink interface.
+
+- The generic netlink interface employed by the Multipath TCP Daemon
+  is based on an early proposal, and will be superseded by the
+  interface available in the MPTCP development kernel, i.e.:
+        https://github.com/multipath-tcp/mptcp/commit/4ea5dee
+
+- In addition to the kernel/user space path management bridging, the
+  Multipath TCP Daemon also monitors changes to local network
+  interfaces and addresses that path management strategies may choose
+  to leverage.  Currently, network interfaces and addresses may be
+  queried (pulled).  A network event notification mechanism for
+  plugins is currently a work-in-progress.
+
+- A single-subflow-per-interface - "sspi" - plugin is included in the
+  source distribution as a reference.   It enforces a single subflow
+  per network interface per MPTCP connection policy.  Available local
+  addresses are also sent to the kernel so that they may be advertised
+  to the peer through a MPTCP ADD_ADDR option.  The current
+  implementation depends on the remote peer to initiate subflows,
+  which may then be allowed or closed per this plugin's policy.
+  Explicitly adding new subflows through this plugin is currently
+  unsupported, but is expected to be implemented in the future.

@@ -1,0 +1,15 @@
+#! /bin/sh
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Test bad mptcpd "--log" long command line option.
+#
+# Copyright (c) 2019, 2021, Intel Corporation
+
+
+../src/mptcpd --log=foo
+
+# Command line usage error exit code.  See <sysexits.h>
+EX_USAGE=64
+
+# mptcpd should have exited with an EX_USAGE exit code.
+test $? != $EX_USAGE

@@ -1,0 +1,17 @@
+#! /bin/sh
+# SPDX-License-Identifier: BSD-3-Clause
+
+# Minimal mptcpd start/stop test.
+#
+# Copyright (c) 2018, 2019, Intel Corporation
+
+
+set -e
+
+# @todo It would be better to have some sort of indication that
+#       mptcpd is fully up and running rather than timeout after a
+#       fixed amount of time like this.
+timeout --preserve-status \
+	--signal=TERM     \
+	--kill-after=5s   \
+         1s ../src/mptcpd --plugin-dir=$TEST_PLUGIN_DIR
