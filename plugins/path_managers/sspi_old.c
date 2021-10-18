@@ -529,7 +529,7 @@ static void sspi_send_addrs(struct mptcpd_interface const *i, void *data)
           connection was created.  Only one subflow per network
           interface per MPTCP connection allowed.
         */
-        if (i->index != info->index){
+        if (i->index != info->index) {
                 /*
                   Send each address associate with the network
                   interface.
@@ -540,16 +540,6 @@ static void sspi_send_addrs(struct mptcpd_interface const *i, void *data)
         }
 }
 
-// debug functio print ipv4 addr in hex 
-static void sspi_print_sock_addr (struct sockaddr const *addr){
-          // // print local addr (4 bytes)    
-        l_info ("addr = %02X:%02X:%02X:%02X",   addr->sa_data[2], 
-                                                addr->sa_data[3],
-                                                addr->sa_data[4],
-                                                addr->sa_data[5]
-                                                );
-}
-
 // ----------------------------------------------------------------
 //                     Mptcpd Plugin Operations
 // ----------------------------------------------------------------
@@ -558,12 +548,17 @@ static void sspi_new_connection(mptcpd_token_t token,
                                 struct sockaddr const *raddr,
                                 struct mptcpd_pm *pm)
 {
-        l_info ("NEW CONNECTION : mptcp token = %u ", token); 
-        // unique mptcp connectioon token 
-        // l_info ("token : %u", token); 
-        // //  print mptcp connection port (2 bytes)
-        // // l_info ("port = %02X:%02X", laddr->sa_data[0], laddr->sa_data[1]);
-        
+        l_info ("NEW CONNECTION"); 
+        l_info ("info : %lu", sizeof (laddr)); 
+        //  print mptcp connection port (2 bytes)
+        l_info ("port = %02X:%02X", laddr->sa_data[0], laddr->sa_data[1]);
+        // print mptcp connection addr (4 bytes)    
+        l_info ("addr = %02X:%02X:%02X:%02X",   laddr->sa_data[2], 
+                                                laddr->sa_data[3],
+                                                laddr->sa_data[4],
+                                                laddr->sa_data[5]
+                                                );
+
         (void) raddr;
 
         /**
@@ -633,7 +628,7 @@ static void sspi_connection_established(mptcpd_token_t token,
         /**
          * @todo Implement this function.
          */
-       // l_warn("%s is unimplemented.", __func__); 
+        l_warn("%s is unimplemented.", __func__); 
 }
 
 static void sspi_connection_closed(mptcpd_token_t token,
@@ -657,15 +652,12 @@ static void sspi_new_address(mptcpd_token_t token,
                              struct sockaddr const *addr,
                              struct mptcpd_pm *pm)
 {
-        l_info ("NEW ADDRESS: mptcp_token = %u", token);
-        sspi_print_sock_addr (addr); 
-        
-        
         (void) token;
         (void) id;
         (void) addr;
         (void) pm;
 
+        l_info ("NEW ADDRESS");
 
         /*
           The sspi plugin doesn't do anything with newly advertised
@@ -804,54 +796,6 @@ static void sspi_subflow_priority(mptcpd_token_t token,
         */
 }
 
-/*
-        network monitor event handlers 
-*/
-
-static void sspi_new_interface (struct mptcpd_interface const *i,
-                                struct mptcpd_pm *pm){
-
-        l_info ("NEW INTERFACE"); 
-        (void) i; 
-        (void) pm; 
-}
-
-static void sspi_update_interface (struct mptcpd_interface const *i,
-                         struct mptcpd_pm *pm)
-{
-        l_info ("UPDATE interface flags");
-        (void) i; 
-        (void) pm;  
-}
-
-static void sspi_delete_interface(struct mptcpd_interface const *i,
-                                  struct mptcpd_pm *pm)
-{
-        l_info("INTEFACE REMOVED");
-        (void) i; 
-        (void) pm; 
-}
-
-static void sspi_new_local_address(struct mptcpd_interface const *i,
-                                   struct sockaddr const *sa,
-                                   struct mptcpd_pm *pm)
-{
-        l_info("NEW LOCAL ADDR");
-        (void)i;
-        (void)sa;
-        (void)pm;
-}
-
-static void sspi_delete_local_address(struct mptcpd_interface const *i,
-                                      struct sockaddr const *sa,
-                                      struct mptcpd_pm *pm)
-{
-        l_info("NET ADDR removed");
-        (void)i;
-        (void)sa;
-        (void)pm;
-}
-
 static struct mptcpd_plugin_ops const pm_ops = {
         .new_connection         = sspi_new_connection,
         .connection_established = sspi_connection_established,
@@ -860,12 +804,7 @@ static struct mptcpd_plugin_ops const pm_ops = {
         .address_removed        = sspi_address_removed,
         .new_subflow            = sspi_new_subflow,
         .subflow_closed         = sspi_subflow_closed,
-        .subflow_priority       = sspi_subflow_priority,
-        .new_interface          = sspi_new_interface,           // network monitor ev handler 
-        .update_interface       = sspi_update_interface,
-        .delete_interface       = sspi_delete_interface,
-        .new_local_address      = sspi_new_local_address,
-        .delete_local_address   = sspi_delete_local_address
+        .subflow_priority       = sspi_subflow_priority
 };
 
 static int sspi_init(struct mptcpd_pm *pm)
