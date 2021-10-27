@@ -23,6 +23,9 @@
 
 #include <mptcpd/network_monitor.h>
 #include <mptcpd/path_manager.h>
+
+#include <mptcpd/addr_info.h>
+
 #include <mptcpd/plugin.h>
 
 /**
@@ -540,6 +543,12 @@ static void sspi_send_addrs(struct mptcpd_interface const *i, void *data)
         }
 }
 
+/********************************************************************
+ *      Additional functions
+ * ******************************************************************
+*/
+
+
 // debug functio print ipv4 addr in hex 
 static void sspi_print_sock_addr (struct sockaddr const *addr){
           // // print local addr (4 bytes)    
@@ -548,6 +557,54 @@ static void sspi_print_sock_addr (struct sockaddr const *addr){
                                                 addr->sa_data[4],
                                                 addr->sa_data[5]
                                                 );
+}
+
+
+/**
+ *      MPTCP limits configuartion  
+*/
+
+static uint32_t const max_addrs = 2;
+static uint32_t const max_subflows = 2;
+
+static struct mptcpd_limit const _limits[] = {
+        {
+                .type  = MPTCPD_LIMIT_RCV_ADD_ADDRS,
+                .limit = max_addrs
+        },
+        {
+                .type  = MPTCPD_LIMIT_SUBFLOWS,
+                .limit = max_subflows
+        }
+};
+
+static void sspi_set_limits(void const *in)
+{
+        if (in == NULL) return ; 
+        struct mptcpd_pm *const pm = (struct mptcpd_pm *) in;
+
+        int const result = mptcpd_kpm_set_limits(pm,
+                                                 _limits,
+                                                 L_ARRAY_SIZE(_limits));
+
+        //assert(result == 0 || result == ENOTSUP);
+        if (!result)  l_info ("LIMITS CHANGED ADD_ADDR = %d , SUBFLOW = %d", max_addrs, max_subflows); 
+}
+
+/**
+ *      Get address callback
+*/
+static void sspi_get_addr_callback(struct mptcpd_addr_info const *info,
+                              void *user_data)
+{       
+        // sockaddr_in
+        //struct sockaddr *laddr =  (struct sockaddr*) (info->addr);
+        (void) user_data;
+
+        uint32_t flags = info->flags;
+        int index = info->index ; 
+        l_info ("index %d , flag : %u", index, flags);  
+
 }
 
 // ----------------------------------------------------------------
@@ -561,9 +618,7 @@ static void sspi_new_connection(mptcpd_token_t token,
         l_info ("NEW CONNECTION : mptcp token = %u ", token); 
         // unique mptcp connectioon token 
         // l_info ("token : %u", token); 
-        // //  print mptcp connection port (2 bytes)
-        // // l_info ("port = %02X:%02X", laddr->sa_data[0], laddr->sa_data[1]);
-        
+
         (void) raddr;
 
         /**
@@ -657,8 +712,8 @@ static void sspi_new_address(mptcpd_token_t token,
                              struct sockaddr const *addr,
                              struct mptcpd_pm *pm)
 {
-        l_info ("NEW ADDRESS: mptcp_token = %u", token);
-        sspi_print_sock_addr (addr); 
+        l_info ("NEW ADDRESS: token = %u , id = %u", token, id);
+        //sspi_print_sock_addr (addr); 
         
         
         (void) token;
@@ -694,9 +749,31 @@ static void sspi_new_subflow(mptcpd_token_t token,
                              bool backup,
                              struct mptcpd_pm *pm)
 {
-        l_info ("NEW SUBFLOW");
-        (void) backup;
+        l_info ("NEW SUBFLOW from <--> to, backup %u ", backup);
+        sspi_print_sock_addr (laddr); 
+        sspi_print_sock_addr (raddr); 
 
+        (void) backup;
+        
+        int res = -1 ; 
+        // set to backup
+        
+        void* data = NULL; 
+
+        // mptcpd_aid_t ; 
+        mptcpd_kpm_get_addr(pm, 1,sspi_get_addr_callback, data); 
+        mptcpd_kpm_get_addr(pm, 2,sspi_get_addr_callback, data); 
+
+
+        static mptcpd_flags_t const flags = MPTCPD_ADDR_FLAG_BACKUP;
+        res = mptcpd_kpm_set_flags(pm, laddr, flags);
+
+        mptcpd_kpm_get_addr(pm, 2,sspi_get_addr_callback, data); 
+
+
+        l_info("SET to backup %d", res); 
+        
+      
         /*
           1. Check if the new subflow local IP address corresponds to
              a network interface that already has a subflow connected
@@ -745,6 +822,7 @@ static void sspi_new_subflow(mptcpd_token_t token,
                 l_error("Unable to associate new subflow "
                         "with network interface %d",
                         info->index);
+                                                
 }
 
 static void sspi_subflow_closed(mptcpd_token_t token,
@@ -804,8 +882,8 @@ static void sspi_subflow_priority(mptcpd_token_t token,
         */
 }
 
-/*
-        network monitor event handlers 
+/**
+ *      network monitor event handlers 
 */
 
 static void sspi_new_interface (struct mptcpd_interface const *i,
@@ -888,6 +966,13 @@ static int sspi_init(struct mptcpd_pm *pm)
 
         l_info("MPTCP single-subflow-per-interface "
                "path manager initialized.");
+
+        /**
+         * change MPTCP limits on start to allow subflow establishing 
+        */
+       //sspi_set_limits (pm);
+//        void* ppm = NULL; 
+//        sspi_set_limits (ppm);
 
         return 0;
 }
