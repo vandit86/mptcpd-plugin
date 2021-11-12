@@ -564,8 +564,8 @@ static void sspi_print_sock_addr (struct sockaddr const *addr){
  *      MPTCP limits configuartion  
 */
 
-static uint32_t const max_addrs = 2;
-static uint32_t const max_subflows = 2;
+static uint32_t const max_addrs = 0;
+static uint32_t const max_subflows = 0;
 
 static struct mptcpd_limit const _limits[] = {
         {
@@ -588,7 +588,8 @@ static void sspi_set_limits(void const *in)
                                                  L_ARRAY_SIZE(_limits));
 
         //assert(result == 0 || result == ENOTSUP);
-        if (!result)  l_info ("LIMITS CHANGED ADD_ADDR = %d , SUBFLOW = %d", max_addrs, max_subflows); 
+        if (!result)  l_info ("LIMITS CHANGED ADD_ADDR = %d , SUBFLOW = %d", 
+                                                max_addrs, max_subflows); 
 }
 
 /**
@@ -603,7 +604,7 @@ static void sspi_get_addr_callback(struct mptcpd_addr_info const *info,
 
         uint32_t flags = info->flags;
         int index = info->index ; 
-        l_info ("index %d , flag : %u", index, flags);  
+        l_info ("get_addr_call : index %d , flag : %u", index, flags);  
 
 }
 
@@ -755,23 +756,18 @@ static void sspi_new_subflow(mptcpd_token_t token,
 
         (void) backup;
         
-        int res = -1 ; 
-        // set to backup
         
-        void* data = NULL; 
-
-        // mptcpd_aid_t ; 
-        mptcpd_kpm_get_addr(pm, 1,sspi_get_addr_callback, data); 
+        
+        void* data = NULL;  
+        //mptcpd_kpm_get_addr(pm, 1,sspi_get_addr_callback, data); 
         mptcpd_kpm_get_addr(pm, 2,sspi_get_addr_callback, data); 
 
+        // set to backup
+        //int res = -1 ; 
+        // static mptcpd_flags_t const flags = MPTCPD_ADDR_FLAG_BACKUP;
+        // res = mptcpd_kpm_set_flags(pm, laddr, flags);
 
-        static mptcpd_flags_t const flags = MPTCPD_ADDR_FLAG_BACKUP;
-        res = mptcpd_kpm_set_flags(pm, laddr, flags);
-
-        mptcpd_kpm_get_addr(pm, 2,sspi_get_addr_callback, data); 
-
-
-        l_info("SET to backup %d", res); 
+        // l_info("SET to backup %d", res); 
         
       
         /*
@@ -939,7 +935,8 @@ static struct mptcpd_plugin_ops const pm_ops = {
         .new_subflow            = sspi_new_subflow,
         .subflow_closed         = sspi_subflow_closed,
         .subflow_priority       = sspi_subflow_priority,
-        .new_interface          = sspi_new_interface,           // network monitor ev handler 
+        // network monitor event handler 
+        .new_interface          = sspi_new_interface,       
         .update_interface       = sspi_update_interface,
         .delete_interface       = sspi_delete_interface,
         .new_local_address      = sspi_new_local_address,
@@ -949,7 +946,6 @@ static struct mptcpd_plugin_ops const pm_ops = {
 static int sspi_init(struct mptcpd_pm *pm)
 {
         l_warn ("INIT PM");
-        (void) pm;
 
         // Create list of connection tokens on each network interface.
         sspi_interfaces = l_queue_new();
@@ -970,11 +966,12 @@ static int sspi_init(struct mptcpd_pm *pm)
         /**
          * change MPTCP limits on start to allow subflow establishing 
         */
-       //sspi_set_limits (pm);
-//        void* ppm = NULL; 
-//        sspi_set_limits (ppm);
+        (void) pm;
+       sspi_set_limits (NULL);
+    //   sspi_set_limits (pm);
 
-        return 0;
+
+       return 0;
 }
 
 static void sspi_exit(struct mptcpd_pm *pm)
