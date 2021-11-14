@@ -23,6 +23,34 @@
 
 #include "path_manager.h"
 
+#include <stdio.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
+
+//need for exit reading thread 
+#include <mptcpd/mptcp_ns3.h>
+
+/**
+ * @brief send "END" command to read thread end exit 
+ * 
+ */
+
+static void close_read_thread(void){
+
+        l_info ("Exit reading Thread");
+        // open in write mode and write
+        int fd1 = open(myfifo, O_WRONLY);
+        size_t len = strlen(SSPI_COMM_END) + 1; 
+        int num = write(fd1, SSPI_COMM_END, len);
+        if (num < 0)
+                l_error("error sig int");
+        close(fd1);
+        // wait thread is end 
+        wait(NULL);
+}
 
 // Handle termination gracefully.
 static void signal_handler(uint32_t signo, void *user_data)
@@ -35,6 +63,7 @@ static void signal_handler(uint32_t signo, void *user_data)
         case SIGINT:
         case SIGTERM:
                 l_debug("\nTerminating %s", (char const *) user_data);
+                close_read_thread(); // close thread 
                 l_main_quit();
                 break;
         }

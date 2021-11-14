@@ -28,6 +28,17 @@
 
 #include <mptcpd/plugin.h>
 
+// requered for pipe fifo
+#include <stdio.h>
+#include <string.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <stdlib.h>  // exit()
+
+#include "mptcpd/mptcp_ns3.h"
+
 /**
  * @brief Local address to interface mapping failure value.
  */
@@ -592,6 +603,66 @@ static void sspi_set_limits(void const *in)
                                                 max_addrs, max_subflows); 
 }
 
+static void sspi_msg_pars (char * msg, bool * keep){
+       
+        if (strcmp(msg,SSPI_COMM_END)==0) {
+                *keep = false; 
+        }  
+        
+        // return 0 ; 
+}
+
+static void sspi_connect_pipe(void const *in)
+{
+        if (in == NULL) return;
+        struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
+        (void) pm ; 
+
+        /* child process */
+        if (!fork())
+        {
+                printf("I'm the child!\n");
+
+                bool keep_reading = true; 
+                int fd1;
+
+                // todo: move to .h 
+                // FIFO file path
+              
+                char buff[BFSZ]; // buffer  
+                
+                // Creating the named file(FIFO)
+                unlink(myfifo); 
+                mkfifo(myfifo, 0666);
+                //mknod(myfifo, S_IFIFO | 0666, 0);
+                
+
+                while (keep_reading) 
+                {
+                        // First open in read only
+                        /* blocking syscall open() */
+                        l_info("waiting for writers..");
+                        fd1 = open(myfifo, O_RDONLY);
+                        if (fd1<0) exit(1); 
+                        /* maybe it's better to use poll() */
+                        int nb =0 ; // num of bytes readed 
+                        while ( (nb = read(fd1, buff, BFSZ)) > 0){
+                                buff[nb] = '\0'; // form string
+                                l_info("Received: %s, size %d bytes \n", 
+                                                                buff, nb);
+                                // now parsing data 
+                                sspi_msg_pars(buff, &keep_reading);
+                        }
+                        close(fd1);
+                }
+                exit(0); // receive "end" messg 
+        }
+        else
+        {
+                // printf("I'm the parent!\n");
+                //wait(NULL);
+        }
+}
 /**
  *      Get address callback
 */
@@ -968,7 +1039,7 @@ static int sspi_init(struct mptcpd_pm *pm)
         */
         (void) pm;
        sspi_set_limits (NULL);
-    //   sspi_set_limits (pm);
+       sspi_connect_pipe (pm);
 
 
        return 0;
