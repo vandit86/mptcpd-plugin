@@ -1,20 +1,27 @@
 #if !defined(MPTCPD_NS3_H)
 #define MPTCPD_NS3_H
 
-#define SSPI_COMM_END "end"
 /*  FIFO NAME   */
-const char *myfifo = "/tmp/myfifo";
+#define SSPI_FIFO_PATH "/tmp/mptcp-ns3-fifo"
 
 /*  MESSAGE MAX SIZE    */
 int  BFSZ = 256;
 
+/*  COMMANDS TYPES  */
+#define SSPI_COMM_END 'E'   // end 
+
+
 /*  MESSAGE STRUCT  */
 
+/**
+ * @brief structure of message to be sent from ns-3 to mptcpd 
+ * plugin 
+ * 
+ */
 struct sspi_ns3_message
 {
-    char type;
-    double value;  
-
+    char type;          // msg type 
+    double value;       // msg value 
 }; 
 
 /*  MESSAGE TYPES*/

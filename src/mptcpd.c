@@ -40,11 +40,21 @@
 
 static void close_read_thread(void){
 
-        l_info ("Exit reading Thread");
-        // open in write mode and write
-        int fd1 = open(myfifo, O_WRONLY);
-        size_t len = strlen(SSPI_COMM_END) + 1; 
-        int num = write(fd1, SSPI_COMM_END, len);
+        // prepare msg for exit listening thread 
+        struct sspi_ns3_message msg = {
+                        .type = SSPI_COMM_END,
+                        .value = 0
+                        }; 
+        /* open in write mode, non blocking (O_NDELAY)
+           This will cause open() to return -1 
+           if there are no processes that have the file open for reading.
+        */ 
+
+        int fd1 = open(SSPI_FIFO_PATH, O_WRONLY,O_NDELAY);
+        // no thread are listing : exit normal 
+        if (fd1<0 ) return; 
+        size_t len = sizeof(msg); 
+        int num = write(fd1, &msg, len);
         if (num < 0)
                 l_error("error sig int");
         close(fd1);

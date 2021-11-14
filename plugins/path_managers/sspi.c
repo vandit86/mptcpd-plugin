@@ -603,14 +603,31 @@ static void sspi_set_limits(void const *in)
                                                 max_addrs, max_subflows); 
 }
 
-static void sspi_msg_pars (char * msg, bool * keep){
+
+/**
+ * @brief parsing incoming msg from ns-3 
+ * 
+ * @param msg message to be parsed 
+ * @param keep this function can change this var to true if END command is 
+ * received. The main mptcpd process could send this comnd to terminate 
+ * listening thread end exit. 
+ */
+static void sspi_msg_pars (struct sspi_ns3_message* msg, bool * keep){
        
-        if (strcmp(msg,SSPI_COMM_END)==0) {
+        if (msg->type == SSPI_COMM_END) {
                 *keep = false; 
-        }  
+        }
+
+        l_info ("Msg type %c value %f", msg->type, msg->value);   
         
         // return 0 ; 
 }
+
+/**
+ * @brief starts listeng thread. Listeng for upcoming commands from NS-3
+ * 
+ * @param in mptcpd_pm path manager  
+ */
 
 static void sspi_connect_pipe(void const *in)
 {
@@ -621,41 +638,33 @@ static void sspi_connect_pipe(void const *in)
         /* child process */
         if (!fork())
         {
-                printf("I'm the child!\n");
-
                 bool keep_reading = true; 
                 int fd1;
-
-                // todo: move to .h 
-                // FIFO file path
-              
-                char buff[BFSZ]; // buffer  
+                struct sspi_ns3_message msg; 
                 
                 // Creating the named file(FIFO)
-                unlink(myfifo); 
-                mkfifo(myfifo, 0666);
-                //mknod(myfifo, S_IFIFO | 0666, 0);
-                
+                unlink(SSPI_FIFO_PATH); 
+                mkfifo(SSPI_FIFO_PATH, 0666);
 
                 while (keep_reading) 
                 {
                         // First open in read only
                         /* blocking syscall open() */
-                        l_info("waiting for writers..");
-                        fd1 = open(myfifo, O_RDONLY);
+                        l_info("blocking therad waiting for writers..");
+                        fd1 = open(SSPI_FIFO_PATH, O_RDONLY);
                         if (fd1<0) exit(1); 
+
                         /* maybe it's better to use poll() */
                         int nb =0 ; // num of bytes readed 
-                        while ( (nb = read(fd1, buff, BFSZ)) > 0){
-                                buff[nb] = '\0'; // form string
-                                l_info("Received: %s, size %d bytes \n", 
-                                                                buff, nb);
-                                // now parsing data 
-                                sspi_msg_pars(buff, &keep_reading);
+                        while ( (nb = read(fd1, &msg, sizeof(msg))) > 0){
+                                l_info("Received: %d bytes \n", nb);
+                                // now parsing msg data  
+                                sspi_msg_pars(&msg, &keep_reading);
                         }
-                        close(fd1);
+                        // close fd when nothing to read
+                        close(fd1);  
                 }
-                exit(0); // receive "end" messg 
+                exit(0); // receive "end" command 
         }
         else
         {
