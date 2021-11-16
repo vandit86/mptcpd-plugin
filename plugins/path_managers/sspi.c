@@ -610,22 +610,33 @@ static void sspi_set_limits(void const *in)
  * @param msg message to be parsed 
  * @param keep this function can change this var to true if END command is 
  * received. The main mptcpd process could send this comnd to terminate 
- * listening thread end exit. 
+ * listening thread end exit.
+ * 
+ * @return -1 if receives "end" command from mptcpd main therad.. 
+ *              0 othervise   
  */
-static void sspi_msg_pars (struct sspi_ns3_message* msg, bool * keep){
-       
-        if (msg->type == SSPI_COMM_END) {
-                *keep = false; 
+static int sspi_msg_pars (struct sspi_ns3_message* msg){
+
+        int res = 0; // result to return 
+        l_info ("Msg type %c value %f", msg->type, msg->value);
+
+        // cmd from mptcpd to stop thread (called on Cntr+C)   
+        if (msg->type == SSPI_COMM_END) res = -1 ;
+        // other cmds
+        else if ( msg->type == SSPI_CMD_TEST){
+
+        }  
+        else{
+                // just inform user, continue to reading 
+                l_info("Uknown ns3 message type : %c", msg->type);
         }
 
-        l_info ("Msg type %c value %f", msg->type, msg->value);   
-        
-        // return 0 ; 
+        return res ; 
 }
 
 /**
  * @brief starts listeng thread. Listeng for upcoming commands from NS-3
- * 
+ *  
  * @param in mptcpd_pm path manager  
  */
 
@@ -635,39 +646,38 @@ static void sspi_connect_pipe(void const *in)
         struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
         (void) pm ; 
 
-        /* child process */
+        /* child process for receive data from NS3 */
         if (!fork())
         {
-                bool keep_reading = true; 
                 int fd1;
                 struct sspi_ns3_message msg; 
                 
                 // Creating the named file(FIFO)
-                unlink(SSPI_FIFO_PATH); 
+                unlink(SSPI_FIFO_PATH);
                 mkfifo(SSPI_FIFO_PATH, 0666);
 
-                while (keep_reading) 
-                {
-                        // First open in read only
-                        /* blocking syscall open() */
-                        l_info("blocking therad waiting for writers..");
-                        fd1 = open(SSPI_FIFO_PATH, O_RDONLY);
-                        if (fd1<0) exit(1); 
+                /* blocking syscall open() */
+                l_info("non blocking open: O_RDWR.");
+                fd1 = open(SSPI_FIFO_PATH, O_RDWR);
 
-                        /* maybe it's better to use poll() */
-                        int nb =0 ; // num of bytes readed 
-                        while ( (nb = read(fd1, &msg, sizeof(msg))) > 0){
-                                l_info("Received: %d bytes \n", nb);
-                                // now parsing msg data  
-                                sspi_msg_pars(&msg, &keep_reading);
-                        }
-                        // close fd when nothing to read
-                        close(fd1);  
+                if (fd1 < 0) exit(1); // check fd 
+
+                /* maybe it's better to use poll() for non bloking */
+                ssize_t nb = 0; // num of bytes readed
+                while ( (nb = read(fd1, &msg, sizeof(msg))) > 0){
+                        
+                        /* now parsing msg data                 */
+                        /* read until receive stop command      */
+                        l_info("Received: %lu bytes \n", nb);
+                        if (sspi_msg_pars(&msg) < 0) break;
                 }
+                // close fd when nothing to read
+                close(fd1);
                 exit(0); // receive "end" command 
         }
         else
-        {
+        {       
+                // todo: renove this else statement 
                 // printf("I'm the parent!\n");
                 //wait(NULL);
         }

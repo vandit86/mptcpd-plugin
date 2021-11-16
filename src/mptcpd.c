@@ -45,11 +45,11 @@ static void close_read_thread(void){
                         .type = SSPI_COMM_END,
                         .value = 0
                         }; 
+        
         /* open in write mode, non blocking (O_NDELAY)
-           This will cause open() to return -1 
-           if there are no processes that have the file open for reading.
+           This will cause open() to return -1if there are no processes 
+           that have the file open for reading.
         */ 
-
         int fd1 = open(SSPI_FIFO_PATH, O_WRONLY,O_NDELAY);
         // no thread are listing : exit normal 
         if (fd1<0 ) return; 
