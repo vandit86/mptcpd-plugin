@@ -102,7 +102,14 @@ https://www.ibm.com/docs/en/ztpf/1.1.0.15?topic=considerations-unix-domain-socke
 
 Ctrl-\ sends a QUIT signal (SIGQUIT); by default, this causes the process to terminate and dump core. (worked..)
 
+see parent pid of process 
+> ps -o ppid=xxxx 
 
+listen on pipe 
+> tail -f 
+
+send to pipe with EOF  
+> echo -e "T\c" > /tmp/mptcp-ns3-fifo 
 
 Normally signals do not interrupt system calls with EINTR
 

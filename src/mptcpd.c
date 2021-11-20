@@ -52,7 +52,11 @@ static void close_read_thread(void){
         */ 
         int fd1 = open(SSPI_FIFO_PATH, O_WRONLY,O_NDELAY);
         // no thread are listing : exit normal 
-        if (fd1<0 ) return; 
+        if (fd1<0 ) {
+                l_info ("No child thread presented");
+                close (fd1); 
+                return;  
+        }  
         size_t len = sizeof(msg); 
         int num = write(fd1, &msg, len);
         if (num < 0)
@@ -60,6 +64,7 @@ static void close_read_thread(void){
         close(fd1);
         // wait thread is end 
         wait(NULL);
+        unlink (SSPI_FIFO_PATH); 
 }
 
 // Handle termination gracefully.

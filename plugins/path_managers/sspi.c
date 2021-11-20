@@ -23,6 +23,7 @@
 
 #include <mptcpd/network_monitor.h>
 #include <mptcpd/path_manager.h>
+// #include <mptcpd/private/path_manager.h>
 
 #include <mptcpd/addr_info.h>
 
@@ -575,8 +576,8 @@ static void sspi_print_sock_addr (struct sockaddr const *addr){
  *      MPTCP limits configuartion  
 */
 
-static uint32_t const max_addrs = 0;
-static uint32_t const max_subflows = 0;
+static uint32_t const max_addrs = 1;
+static uint32_t const max_subflows = 1;
 
 static struct mptcpd_limit const _limits[] = {
         {
@@ -603,6 +604,48 @@ static void sspi_set_limits(void const *in)
                                                 max_addrs, max_subflows); 
 }
 
+static void sspi_get_limits_callback(struct mptcpd_limit const *limits,
+                                size_t len,
+                                void *user_data)
+{
+        // uint32_t addrs_limit = max_addrs;
+        // uint32_t subflows_limit = max_subflows;
+
+        if (geteuid() != 0) {
+                /*
+                  if the current user is not root, the previous set_limit()
+                  call is failied with ENOPERM, but libell APIs don't
+                  allow reporting such error to the caller.
+                  Just assume set_limits has no effect
+                */
+                // addrs_limit = 0;
+                // subflows_limit = 0;
+                l_info ("uid != 0"); 
+        }
+
+        (void) user_data;
+
+        // assert(limits != NULL);
+        // assert(len == L_ARRAY_SIZE(_limits));
+        l_info("len == %zu", len);
+        
+        for (struct mptcpd_limit const *l = limits;
+             l != limits + len; ++l) {
+                if (l->type == MPTCPD_LIMIT_RCV_ADD_ADDRS) {
+                        l_info ("Add limit %u", l->limit); 
+                } else if (l->type == MPTCPD_LIMIT_SUBFLOWS) {
+                        l_info("Sub limit: %u", l->limit);
+                } else {
+                        /*
+                          Unless more MPTCP limit types are added to
+                          the kernel path management API this should
+                          never be reached.
+                        */
+                        l_error("Unexpected MPTCP limit type.");
+                }
+        }
+}
+
 
 /**
  * @brief parsing incoming msg from ns-3 
@@ -611,26 +654,46 @@ static void sspi_set_limits(void const *in)
  * @param keep this function can change this var to true if END command is 
  * received. The main mptcpd process could send this comnd to terminate 
  * listening thread end exit.
+ * @param in pointer to struct mptcpd_pm *const, need cast from void
  * 
  * @return -1 if receives "end" command from mptcpd main therad.. 
  *              0 othervise   
  */
-static int sspi_msg_pars (struct sspi_ns3_message* msg){
-
+static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
+                
         int res = 0; // result to return 
         l_info ("Msg type %c value %f", msg->type, msg->value);
 
+        if (in == NULL) return 0;
+        struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
+        
+        // DO NOT WORK IN SEPARATE THREAD 
         // cmd from mptcpd to stop thread (called on Cntr+C)   
         if (msg->type == SSPI_COMM_END) res = -1 ;
         // other cmds
         else if ( msg->type == SSPI_CMD_TEST){
+                // const mptcpd_aid_t id = 2; 
+                // //receive test command : send kpm_remove_addr
+                // if (mptcpd_kpm_remove_addr(pm, id) != 0)
+                //         l_info("Unable to stop advertising IP address.");
+                // l_info ("command pass"); 
+                // if (mptcpd_kpm_flush_addrs(pm) != 0)
+                //         l_info("Unable to flush IP addresses.");
+                // l_info ("command pass"); 
+                
+                sspi_set_limits (pm);
+
+                if (mptcpd_kpm_get_limits(pm, sspi_get_limits_callback,
+                                                NULL) !=0) 
+                        l_info("Unable to get limits IP addresses.");
+                l_info ("command pass"); 
+
 
         }  
         else{
                 // just inform user, continue to reading 
                 l_info("Uknown ns3 message type : %c", msg->type);
         }
-
         return res ; 
 }
 
@@ -642,9 +705,10 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg){
 
 static void sspi_connect_pipe(void const *in)
 {
-        if (in == NULL) return;
-        struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
-        (void) pm ; 
+        if (in == NULL) return; // path manager
+        
+        // struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
+        // l_info("PM_id = %d ", pm->id);
 
         /* child process for receive data from NS3 */
         if (!fork())
@@ -656,7 +720,7 @@ static void sspi_connect_pipe(void const *in)
                 unlink(SSPI_FIFO_PATH);
                 mkfifo(SSPI_FIFO_PATH, 0666);
 
-                /* blocking syscall open() */
+                /* non blocking syscall open() */
                 l_info("non blocking open: O_RDWR.");
                 fd1 = open(SSPI_FIFO_PATH, O_RDWR);
 
@@ -669,7 +733,9 @@ static void sspi_connect_pipe(void const *in)
                         /* now parsing msg data                 */
                         /* read until receive stop command      */
                         l_info("Received: %lu bytes \n", nb);
-                        if (sspi_msg_pars(&msg) < 0) break;
+                        if (sspi_msg_pars(&msg, in) < 0) 
+                                        break;
+                       // break; 
                 }
                 // close fd when nothing to read
                 close(fd1);
@@ -707,6 +773,8 @@ static void sspi_new_connection(mptcpd_token_t token,
                                 struct mptcpd_pm *pm)
 {
         l_info ("NEW CONNECTION : mptcp token = %u ", token); 
+
+       
         // unique mptcp connectioon token 
         // l_info ("token : %u", token); 
 
@@ -1056,10 +1124,14 @@ static int sspi_init(struct mptcpd_pm *pm)
         /**
          * change MPTCP limits on start to allow subflow establishing 
         */
-        (void) pm;
-       sspi_set_limits (NULL);
+        // (void) pm;
+       // __attribute__ ((unused))
+        // sspi_set_limits(pm);
+        // if (mptcpd_kpm_get_limits(pm, sspi_get_limits_callback,
+        //                           NULL) != 0)
+        //         l_info("Unable to get limits IP addresses.");
+        
        sspi_connect_pipe (pm);
-
 
        return 0;
 }
