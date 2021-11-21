@@ -23,7 +23,12 @@
 
 #include <mptcpd/network_monitor.h>
 #include <mptcpd/path_manager.h>
+
 // #include <mptcpd/private/path_manager.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <pthread.h>
+//#include <conio.h>
 
 #include <mptcpd/addr_info.h>
 
@@ -703,16 +708,16 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
  * @param in mptcpd_pm path manager  
  */
 
-static void sspi_connect_pipe(void const *in)
+static void* sspi_connect_pipe(void *in)
 {
-        if (in == NULL) return; // path manager
+        // if (in == NULL) return -1; // path manager
         
         // struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
         // l_info("PM_id = %d ", pm->id);
 
-        /* child process for receive data from NS3 */
-        if (!fork())
-        {
+        // /* child process for receive data from NS3 */
+        // if (!fork())
+        // {
                 int fd1;
                 struct sspi_ns3_message msg; 
                 
@@ -740,13 +745,14 @@ static void sspi_connect_pipe(void const *in)
                 // close fd when nothing to read
                 close(fd1);
                 exit(0); // receive "end" command 
-        }
-        else
-        {       
-                // todo: renove this else statement 
-                // printf("I'm the parent!\n");
-                //wait(NULL);
-        }
+        // }
+        // else
+        // {       
+        //         // todo: renove this else statement 
+        //         // printf("I'm the parent!\n");
+        //         //wait(NULL);
+        // }
+        return 0 ; 
 }
 /**
  *      Get address callback
@@ -1131,9 +1137,19 @@ static int sspi_init(struct mptcpd_pm *pm)
         //                           NULL) != 0)
         //         l_info("Unable to get limits IP addresses.");
         
-       sspi_connect_pipe (pm);
+//        sspi_connect_pipe (pm);
+        pthread_t thread;
+        int status;
+        //int status_addr;
+        status = pthread_create(&thread, NULL, sspi_connect_pipe, 
+                (void*) pm);
+        if (status != 0)
+        {
+                l_info("main error: can't create thread");
+                exit(-1);
+        }
 
-       return 0;
+        return 0;
 }
 
 static void sspi_exit(struct mptcpd_pm *pm)
