@@ -9,11 +9,16 @@ int  BFSZ = 256;
 
 /*  COMMANDS TYPES  */
 // "END" cmd from mptcpd to stop thread (called on Cntr+C)
-#define SSPI_COMM_END 'E'
+// #define SSPI_COMM_END 255
 
-// test cmd
-#define SSPI_CMD_TEST 'T'    
+// // test cmd
+// #define SSPI_CMD_TEST 'T'    
 
+enum{
+    SSPI_CMD_TEST=0,
+    SSPI_COMM_END,
+    SSPI_LAST_CMD
+}; 
 
 /*  MESSAGE STRUCT  */
 /**

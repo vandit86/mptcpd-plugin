@@ -632,7 +632,7 @@ static void sspi_get_limits_callback(struct mptcpd_limit const *limits,
 
         // assert(limits != NULL);
         // assert(len == L_ARRAY_SIZE(_limits));
-        l_info("len == %zu", len);
+        // l_info("len == %zu", len);
         
         for (struct mptcpd_limit const *l = limits;
              l != limits + len; ++l) {
