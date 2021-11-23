@@ -666,15 +666,14 @@ static void sspi_get_limits_callback(struct mptcpd_limit const *limits,
  */
 static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                 
-        int res = 0; // result to return 
         l_info ("Msg type %c value %f", msg->type, msg->value);
 
         if (in == NULL) return 0;
         struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
         
-        // DO NOT WORK IN SEPARATE THREAD 
         // cmd from mptcpd to stop thread (called on Cntr+C)   
-        if (msg->type == SSPI_COMM_END) res = -1 ;
+        if (msg->type == SSPI_COMM_END) return -1 ;
+        
         // other cmds
         else if ( msg->type == SSPI_CMD_TEST){
                 // const mptcpd_aid_t id = 2; 
@@ -699,7 +698,8 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                 // just inform user, continue to reading 
                 l_info("Uknown ns3 message type : %c", msg->type);
         }
-        return res ; 
+
+        return EXIT_SUCCESS; 
 }
 
 /**
@@ -710,49 +710,41 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
 
 static void* sspi_connect_pipe(void *in)
 {
-        // if (in == NULL) return -1; // path manager
+        if (in == NULL) EXIT_FAILURE; // path manager
         
         // struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
-        // l_info("PM_id = %d ", pm->id);
 
-        // /* child process for receive data from NS3 */
-        // if (!fork())
-        // {
-                int fd1;
-                struct sspi_ns3_message msg; 
+        int fd;
+        struct sspi_ns3_message msg;
+
+        /* Creating the named file(FIFO) */
+        unlink(SSPI_FIFO_PATH);
+        mkfifo(SSPI_FIFO_PATH, 0666);
+
+        /* non blocking syscall open() */
+        fd = open(SSPI_FIFO_PATH, O_RDWR);
+
+        if (fd < 0)
+                exit(1); // check fd
+
+        /* maybe it's better to use poll() for non bloking */
+        ssize_t nb = 0; // num of bytes readed
+        l_info("listening thead..");
+        while ((nb = read(fd, &msg, sizeof(msg))) > 0)
+        {
+                /* now parsing msg data                 */
+                /* read until receive stop command      */
+                l_info("Received: %lu bytes \n", nb);
                 
-                // Creating the named file(FIFO)
-                unlink(SSPI_FIFO_PATH);
-                mkfifo(SSPI_FIFO_PATH, 0666);
+                // receive "end" command
+                if (sspi_msg_pars(&msg, in) < 0)
+                        break;
+        }
+        // close fd when nothing to read
+        close(fd);
+        exit(0); 
 
-                /* non blocking syscall open() */
-                l_info("non blocking open: O_RDWR.");
-                fd1 = open(SSPI_FIFO_PATH, O_RDWR);
-
-                if (fd1 < 0) exit(1); // check fd 
-
-                /* maybe it's better to use poll() for non bloking */
-                ssize_t nb = 0; // num of bytes readed
-                while ( (nb = read(fd1, &msg, sizeof(msg))) > 0){
-                        
-                        /* now parsing msg data                 */
-                        /* read until receive stop command      */
-                        l_info("Received: %lu bytes \n", nb);
-                        if (sspi_msg_pars(&msg, in) < 0) 
-                                        break;
-                       // break; 
-                }
-                // close fd when nothing to read
-                close(fd1);
-                exit(0); // receive "end" command 
-        // }
-        // else
-        // {       
-        //         // todo: renove this else statement 
-        //         // printf("I'm the parent!\n");
-        //         //wait(NULL);
-        // }
-        return 0 ; 
+        return EXIT_SUCCESS ; 
 }
 /**
  *      Get address callback
@@ -1132,21 +1124,20 @@ static int sspi_init(struct mptcpd_pm *pm)
         */
         // (void) pm;
        // __attribute__ ((unused))
-        // sspi_set_limits(pm);
-        // if (mptcpd_kpm_get_limits(pm, sspi_get_limits_callback,
-        //                           NULL) != 0)
-        //         l_info("Unable to get limits IP addresses.");
         
-//        sspi_connect_pipe (pm);
+        /**
+         * create separate thread to listening ingomming data,
+         * for example from NS3
+         */
+
         pthread_t thread;
         int status;
-        //int status_addr;
         status = pthread_create(&thread, NULL, sspi_connect_pipe, 
                 (void*) pm);
         if (status != 0)
         {
-                l_info("main error: can't create thread");
-                exit(-1);
+                l_info("Plugin, can't create thread");
+                exit(EXIT_FAILURE);
         }
 
         return 0;
