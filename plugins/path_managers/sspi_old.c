@@ -23,27 +23,7 @@
 
 #include <mptcpd/network_monitor.h>
 #include <mptcpd/path_manager.h>
-
-// #include <mptcpd/private/path_manager.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <pthread.h>
-//#include <conio.h>
-
-#include <mptcpd/addr_info.h>
-
 #include <mptcpd/plugin.h>
-
-// requered for pipe fifo
-#include <stdio.h>
-#include <string.h>
-#include <fcntl.h>
-#include <sys/stat.h>
-#include <sys/types.h>
-#include <unistd.h>
-#include <stdlib.h>  // exit()
-
-#include "mptcpd/mptcp_ns3.h"
 
 /**
  * @brief Local address to interface mapping failure value.
@@ -549,7 +529,7 @@ static void sspi_send_addrs(struct mptcpd_interface const *i, void *data)
           connection was created.  Only one subflow per network
           interface per MPTCP connection allowed.
         */
-        if (i->index != info->index){
+        if (i->index != info->index) {
                 /*
                   Send each address associate with the network
                   interface.
@@ -560,208 +540,6 @@ static void sspi_send_addrs(struct mptcpd_interface const *i, void *data)
         }
 }
 
-/********************************************************************
- *      Additional functions
- * ******************************************************************
-*/
-
-
-// debug functio print ipv4 addr in hex 
-static void sspi_print_sock_addr (struct sockaddr const *addr){
-          // // print local addr (4 bytes)    
-        l_info ("addr = %02X:%02X:%02X:%02X",   addr->sa_data[2], 
-                                                addr->sa_data[3],
-                                                addr->sa_data[4],
-                                                addr->sa_data[5]
-                                                );
-}
-
-
-/**
- *      MPTCP limits configuartion  
-*/
-
-static uint32_t const max_addrs = 1;
-static uint32_t const max_subflows = 1;
-
-static struct mptcpd_limit const _limits[] = {
-        {
-                .type  = MPTCPD_LIMIT_RCV_ADD_ADDRS,
-                .limit = max_addrs
-        },
-        {
-                .type  = MPTCPD_LIMIT_SUBFLOWS,
-                .limit = max_subflows
-        }
-};
-
-static void sspi_set_limits(void const *in)
-{
-        if (in == NULL) return ; 
-        struct mptcpd_pm *const pm = (struct mptcpd_pm *) in;
-
-        int const result = mptcpd_kpm_set_limits(pm,
-                                                 _limits,
-                                                 L_ARRAY_SIZE(_limits));
-
-        //assert(result == 0 || result == ENOTSUP);
-        if (!result)  l_info ("LIMITS CHANGED ADD_ADDR = %d , SUBFLOW = %d", 
-                                                max_addrs, max_subflows); 
-}
-
-static void sspi_get_limits_callback(struct mptcpd_limit const *limits,
-                                size_t len,
-                                void *user_data)
-{
-        // uint32_t addrs_limit = max_addrs;
-        // uint32_t subflows_limit = max_subflows;
-
-        if (geteuid() != 0) {
-                /*
-                  if the current user is not root, the previous set_limit()
-                  call is failied with ENOPERM, but libell APIs don't
-                  allow reporting such error to the caller.
-                  Just assume set_limits has no effect
-                */
-                // addrs_limit = 0;
-                // subflows_limit = 0;
-                l_info ("uid != 0"); 
-        }
-
-        (void) user_data;
-
-        // assert(limits != NULL);
-        // assert(len == L_ARRAY_SIZE(_limits));
-        l_info("len == %zu", len);
-        
-        for (struct mptcpd_limit const *l = limits;
-             l != limits + len; ++l) {
-                if (l->type == MPTCPD_LIMIT_RCV_ADD_ADDRS) {
-                        l_info ("Add limit %u", l->limit); 
-                } else if (l->type == MPTCPD_LIMIT_SUBFLOWS) {
-                        l_info("Sub limit: %u", l->limit);
-                } else {
-                        /*
-                          Unless more MPTCP limit types are added to
-                          the kernel path management API this should
-                          never be reached.
-                        */
-                        l_error("Unexpected MPTCP limit type.");
-                }
-        }
-}
-
-
-/**
- * @brief parsing incoming msg from ns-3 
- * 
- * @param msg message to be parsed 
- * @param keep this function can change this var to true if END command is 
- * received. The main mptcpd process could send this comnd to terminate 
- * listening thread end exit.
- * @param in pointer to struct mptcpd_pm *const, need cast from void
- * 
- * @return -1 if receives "end" command from mptcpd main therad.. 
- *              0 othervise   
- */
-static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
-                
-        l_info ("Msg type %c value %f", msg->type, msg->value);
-
-        if (in == NULL) return 0;
-        struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
-        
-        // cmd from mptcpd to stop thread (called on Cntr+C)   
-        if (msg->type == SSPI_COMM_END) return -1 ;
-        
-        // other cmds
-        else if ( msg->type == SSPI_CMD_TEST){
-                // const mptcpd_aid_t id = 2; 
-                // //receive test command : send kpm_remove_addr
-                // if (mptcpd_kpm_remove_addr(pm, id) != 0)
-                //         l_info("Unable to stop advertising IP address.");
-                // l_info ("command pass"); 
-                // if (mptcpd_kpm_flush_addrs(pm) != 0)
-                //         l_info("Unable to flush IP addresses.");
-                // l_info ("command pass"); 
-                
-                sspi_set_limits (pm);
-
-                if (mptcpd_kpm_get_limits(pm, sspi_get_limits_callback,
-                                                NULL) !=0) 
-                        l_info("Unable to get limits IP addresses.");
-                l_info ("command pass"); 
-
-
-        }  
-        else{
-                // just inform user, continue to reading 
-                l_info("Uknown ns3 message type : %c", msg->type);
-        }
-
-        return EXIT_SUCCESS; 
-}
-
-/**
- * @brief starts listeng thread. Listeng for upcoming commands from NS-3
- *  
- * @param in mptcpd_pm path manager  
- */
-
-static void* sspi_connect_pipe(void *in)
-{
-        if (in == NULL) EXIT_FAILURE; // path manager
-        
-        // struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
-
-        int fd;
-        struct sspi_ns3_message msg;
-
-        /* Creating the named file(FIFO) */
-        unlink(SSPI_FIFO_PATH);
-        mkfifo(SSPI_FIFO_PATH, 0666);
-
-        /* non blocking syscall open() */
-        fd = open(SSPI_FIFO_PATH, O_RDWR);
-
-        if (fd < 0)
-                exit(1); // check fd
-
-        /* maybe it's better to use poll() for non bloking */
-        ssize_t nb = 0; // num of bytes readed
-        l_info("listening thead..");
-        while ((nb = read(fd, &msg, sizeof(msg))) > 0)
-        {
-                /* now parsing msg data                 */
-                /* read until receive stop command      */
-                l_info("Received: %lu bytes \n", nb);
-                
-                // receive "end" command
-                if (sspi_msg_pars(&msg, in) < 0)
-                        break;
-        }
-        // close fd when nothing to read
-        close(fd);
-        exit(0); 
-
-        return EXIT_SUCCESS ; 
-}
-/**
- *      Get address callback
-*/
-static void sspi_get_addr_callback(struct mptcpd_addr_info const *info,
-                              void *user_data)
-{       
-        // sockaddr_in
-        //struct sockaddr *laddr =  (struct sockaddr*) (info->addr);
-        (void) user_data;
-
-        uint32_t flags = info->flags;
-        int index = info->index ; 
-        l_info ("get_addr_call : index %d , flag : %u", index, flags);  
-
-}
-
 // ----------------------------------------------------------------
 //                     Mptcpd Plugin Operations
 // ----------------------------------------------------------------
@@ -770,11 +548,16 @@ static void sspi_new_connection(mptcpd_token_t token,
                                 struct sockaddr const *raddr,
                                 struct mptcpd_pm *pm)
 {
-        l_info ("NEW CONNECTION : mptcp token = %u ", token); 
-
-       
-        // unique mptcp connectioon token 
-        // l_info ("token : %u", token); 
+        l_info ("NEW CONNECTION"); 
+        l_info ("info : %lu", sizeof (laddr)); 
+        //  print mptcp connection port (2 bytes)
+        l_info ("port = %02X:%02X", laddr->sa_data[0], laddr->sa_data[1]);
+        // print mptcp connection addr (4 bytes)    
+        l_info ("addr = %02X:%02X:%02X:%02X",   laddr->sa_data[2], 
+                                                laddr->sa_data[3],
+                                                laddr->sa_data[4],
+                                                laddr->sa_data[5]
+                                                );
 
         (void) raddr;
 
@@ -845,7 +628,7 @@ static void sspi_connection_established(mptcpd_token_t token,
         /**
          * @todo Implement this function.
          */
-       // l_warn("%s is unimplemented.", __func__); 
+        l_warn("%s is unimplemented.", __func__); 
 }
 
 static void sspi_connection_closed(mptcpd_token_t token,
@@ -869,15 +652,12 @@ static void sspi_new_address(mptcpd_token_t token,
                              struct sockaddr const *addr,
                              struct mptcpd_pm *pm)
 {
-        l_info ("NEW ADDRESS: token = %u , id = %u", token, id);
-        //sspi_print_sock_addr (addr); 
-        
-        
         (void) token;
         (void) id;
         (void) addr;
         (void) pm;
 
+        l_info ("NEW ADDRESS");
 
         /*
           The sspi plugin doesn't do anything with newly advertised
@@ -906,26 +686,9 @@ static void sspi_new_subflow(mptcpd_token_t token,
                              bool backup,
                              struct mptcpd_pm *pm)
 {
-        l_info ("NEW SUBFLOW from <--> to, backup %u ", backup);
-        sspi_print_sock_addr (laddr); 
-        sspi_print_sock_addr (raddr); 
-
+        l_info ("NEW SUBFLOW");
         (void) backup;
-        
-        
-        
-        void* data = NULL;  
-        //mptcpd_kpm_get_addr(pm, 1,sspi_get_addr_callback, data); 
-        mptcpd_kpm_get_addr(pm, 2,sspi_get_addr_callback, data); 
 
-        // set to backup
-        //int res = -1 ; 
-        // static mptcpd_flags_t const flags = MPTCPD_ADDR_FLAG_BACKUP;
-        // res = mptcpd_kpm_set_flags(pm, laddr, flags);
-
-        // l_info("SET to backup %d", res); 
-        
-      
         /*
           1. Check if the new subflow local IP address corresponds to
              a network interface that already has a subflow connected
@@ -974,7 +737,6 @@ static void sspi_new_subflow(mptcpd_token_t token,
                 l_error("Unable to associate new subflow "
                         "with network interface %d",
                         info->index);
-                                                
 }
 
 static void sspi_subflow_closed(mptcpd_token_t token,
@@ -1034,54 +796,6 @@ static void sspi_subflow_priority(mptcpd_token_t token,
         */
 }
 
-/**
- *      network monitor event handlers 
-*/
-
-static void sspi_new_interface (struct mptcpd_interface const *i,
-                                struct mptcpd_pm *pm){
-
-        l_info ("NEW INTERFACE"); 
-        (void) i; 
-        (void) pm; 
-}
-
-static void sspi_update_interface (struct mptcpd_interface const *i,
-                         struct mptcpd_pm *pm)
-{
-        l_info ("UPDATE interface flags");
-        (void) i; 
-        (void) pm;  
-}
-
-static void sspi_delete_interface(struct mptcpd_interface const *i,
-                                  struct mptcpd_pm *pm)
-{
-        l_info("INTEFACE REMOVED");
-        (void) i; 
-        (void) pm; 
-}
-
-static void sspi_new_local_address(struct mptcpd_interface const *i,
-                                   struct sockaddr const *sa,
-                                   struct mptcpd_pm *pm)
-{
-        l_info("NEW LOCAL ADDR");
-        (void)i;
-        (void)sa;
-        (void)pm;
-}
-
-static void sspi_delete_local_address(struct mptcpd_interface const *i,
-                                      struct sockaddr const *sa,
-                                      struct mptcpd_pm *pm)
-{
-        l_info("NET ADDR removed");
-        (void)i;
-        (void)sa;
-        (void)pm;
-}
-
 static struct mptcpd_plugin_ops const pm_ops = {
         .new_connection         = sspi_new_connection,
         .connection_established = sspi_connection_established,
@@ -1090,18 +804,13 @@ static struct mptcpd_plugin_ops const pm_ops = {
         .address_removed        = sspi_address_removed,
         .new_subflow            = sspi_new_subflow,
         .subflow_closed         = sspi_subflow_closed,
-        .subflow_priority       = sspi_subflow_priority,
-        // network monitor event handler 
-        .new_interface          = sspi_new_interface,       
-        .update_interface       = sspi_update_interface,
-        .delete_interface       = sspi_delete_interface,
-        .new_local_address      = sspi_new_local_address,
-        .delete_local_address   = sspi_delete_local_address
+        .subflow_priority       = sspi_subflow_priority
 };
 
 static int sspi_init(struct mptcpd_pm *pm)
 {
         l_warn ("INIT PM");
+        (void) pm;
 
         // Create list of connection tokens on each network interface.
         sspi_interfaces = l_queue_new();
@@ -1118,27 +827,6 @@ static int sspi_init(struct mptcpd_pm *pm)
 
         l_info("MPTCP single-subflow-per-interface "
                "path manager initialized.");
-
-        /**
-         * change MPTCP limits on start to allow subflow establishing 
-        */
-        // (void) pm;
-       // __attribute__ ((unused))
-        
-        /**
-         * create separate thread to listening ingomming data,
-         * for example from NS3
-         */
-
-        pthread_t thread;
-        int status;
-        status = pthread_create(&thread, NULL, sspi_connect_pipe, 
-                (void*) pm);
-        if (status != 0)
-        {
-                l_info("Plugin, can't create thread");
-                exit(EXIT_FAILURE);
-        }
 
         return 0;
 }

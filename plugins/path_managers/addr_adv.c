@@ -114,7 +114,7 @@ static struct mptcpd_plugin_ops const pm_ops = {
         .delete_local_address = addr_adv_delete_local_address
 };
 
-static int addr_adv_init(struct mptcpd_pm *pm)
+__attribute__ ((unused)) static int addr_adv_init(struct mptcpd_pm *pm)
 {
         static char const name[] = "addr_adv";
 
@@ -132,18 +132,20 @@ static int addr_adv_init(struct mptcpd_pm *pm)
         return 0;
 }
 
-static void addr_adv_exit(struct mptcpd_pm *pm)
+// __attribute__ ((unused))   to compile without wornings of unused func
+__attribute__ ((unused))  void addr_adv_exit(struct mptcpd_pm *pm)
 {
         (void) pm;
 
         l_info("MPTCP address advertiser path manager exited.");
 }
 
-MPTCPD_PLUGIN_DEFINE(addr_adv,
-                     "Address advertiser path manager",
-                     MPTCPD_PLUGIN_PRIORITY_DEFAULT,
-                     addr_adv_init,
-                     addr_adv_exit)
+
+// MPTCPD_PLUGIN_DEFINE(addr_adv,
+//                      "Address advertiser path manager",
+//                      MPTCPD_PLUGIN_PRIORITY_DEFAULT,
+//                      addr_adv_init,
+//                      addr_adv_exit)
 
 
 /*
