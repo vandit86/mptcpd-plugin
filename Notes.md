@@ -83,49 +83,21 @@ kernel PM will try to establish subflow when receives ADD_ADDR
     - check video quality 
 - `Evaluate parameters directly on ghost of NS-3`
 
-<br>
-<br>
-
+<br><br>
 
 ## NS-3 to Namespaces Connection 
 
-> Server (mptcpd-plugin) <-- Cliente (NS3)  
+    Server (mptcpd-plugin) <-- Cliente (NS3)  
 
 ### IPC connection 
 - `Named Pipes` or `System-V message`
     - [Tuttorial about FIFO config and mamny more](http://beej.us/guide/bgipc/html/single/bgipc.html#fifos)
-    - Book Stivens
-    -  *man msgsnd*, *man sysvipc* (`example  system-v`) <br><br> 
+    - Book **Stivens**
+    -  *man msgsnd*, *man sysvipc* (`example  system-v`) 
+        <br><br> 
 - `Socket TCP`
 
-https://www.ibm.com/docs/en/ztpf/1.1.0.15?topic=considerations-unix-domain-sockets 
-
-Ctrl-\ sends a QUIT signal (SIGQUIT); by default, this causes the process to terminate and dump core. (worked..)
-
-see parent pid of process 
-> ps -o ppid=xxxx 
-
-listen on pipe 
-> tail -f 
-
-send to pipe with EOF  
-> echo -e "T\c" > /tmp/mptcp-ns3-fifo 
-
-Normally signals do not interrupt system calls with EINTR
-
-https://stackoverflow.com/questions/17822025/how-to-cleanly-interrupt-a-thread-blocking-on-a-recv-call
-
-### Message type/struct
-There is an inherent message-boundary problem in any kind of stream communication, however, and you'll need to deal with it. There are several approaches; among the most commonly used are
-
-- Fixed-length messages. The receiver can then read until it successfully transfers the required number of bytes; any blocking involved is appropriate and needful. With this approach, the scenario you postulate simply does not arise, but the writer might need to pad its messages.
-
-- Delimited messages. The receiver then reads until it finds that it has received a message delimiter (a newline or a null byte, for example). In this case, the receiver will need to be prepared for the possibility of message boundaries not being aligned with the byte sequences transferred by read() calls. Marking the end of a message by closing the channel can be considered a special case of this alternative.
-
-- Embedded message-length metadata. This can take many forms, but one of the simplest is to structure messages as a fixed-length integer message length field, followed by that number of bytes of message data. The reader then knows at every point how many bytes it needs to read, so it will not block needlessly. 
-
-<br>
-<br>
+<br><br>
 
 ## Get TCP data from kernel
 

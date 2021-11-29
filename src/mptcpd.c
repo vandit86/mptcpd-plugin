@@ -54,17 +54,14 @@ static void close_read_thread(void){
         // no thread are listing : exit normal 
         if (fd1<0 ) {
                 l_info ("No child thread presented");
-                close (fd1); 
                 return;  
         }  
-        size_t len = sizeof(msg); 
-        int num = write(fd1, &msg, len);
+         
+        int num = write(fd1, &msg, sizeof(msg));
         if (num < 0)
                 l_error("error sig int");
-        close(fd1);
-        // wait thread is end 
-        wait(NULL);
-        unlink (SSPI_FIFO_PATH); 
+        usleep(100); 
+        //close(fd1);
 }
 
 // Handle termination gracefully.
