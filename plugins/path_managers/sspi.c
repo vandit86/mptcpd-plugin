@@ -64,6 +64,16 @@
                 i->index,
                 i->flags,
                 i->name);
+
+
+static struct sockaddr const *const laddr1 =
+        (struct sockaddr const *) &test_laddr_1;
+static struct sockaddr_in const test_laddr_1 = {
+        .sin_family = AF_INET,
+        .sin_port   = 0x1234,
+        .sin_addr   = { .s_addr = 0x010200C0 }  // 192.0.2.1
+};
+
 */
 
 /********************************************************************
