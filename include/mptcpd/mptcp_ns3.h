@@ -15,9 +15,14 @@ int  BFSZ = 256;
 enum{
     SSPI_CMD_TEST=0,    // \00 test command
     SSPI_CMD_DEL,       // \01 delete one path (id in value)
-    SSPI_CMD_FLAG,      // \02 flag set to backup
-    SSPI_CMD_DUMP,      // \03 dump addreses mptcp 
-    SSPI_COMM_END,      // \ stop receiving tread on mptcpd
+    
+    // enable wifi as backup (val = 1) disable (val = 0)
+    SSPI_CMD_FLAG,      
+    
+    SSPI_CMD_WIFI_SNR,      // \03 dump addreses mptcp 
+    
+    SSPI_CMD_END,      // \ stop receiving tread on mptcpd
+    SSPI_CMD_IPERF_START,  // start iperf ; VAL -> time is sec
     SSPI_CMD_LAST       // last command value 
 }; 
 

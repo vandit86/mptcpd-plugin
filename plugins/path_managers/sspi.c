@@ -159,7 +159,7 @@ static void sspi_get_addr_callback(struct mptcpd_addr_info const *info,
 
         if (mptcpd_kpm_set_flags(pm, laddr, flags) != 0)
         {
-                l_error("Unable to set flag %u", MPTCPD_ADDR_FLAG_BACKUP);
+                l_error("Unable to set flag %u", flags);
         }
 }
 
@@ -213,7 +213,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
         struct mptcpd_pm *const pm = (struct mptcpd_pm *)in;
         
         // cmd from mptcpd to stop thread (called on Cntr+C)   
-        if (msg->type == SSPI_COMM_END) return -1 ;
+        if (msg->type == SSPI_CMD_END) return -1 ;
         
         // test cmds
         else if ( msg->type == SSPI_CMD_TEST){
@@ -247,15 +247,33 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                 }
         }
 
-        else if (msg->type == SSPI_CMD_DUMP){
-                if ( mptcpd_kpm_dump_addrs(pm, 
-                        sspi_get_addr_callback, (void*)in) !=0){
-                                l_error ("Unable dump adrese"); 
-                        }
+        else if (msg->type == SSPI_CMD_WIFI_SNR){
+
+                l_info ("SNR : %d", msg->value); 
+                // if ( mptcpd_kpm_dump_addrs(pm, 
+                //         sspi_get_addr_callback, (void*)in) !=0){
+                //                 l_error ("Unable dump adrese"); 
+                //         }
+        }
+
+        // stert generate traffic in separate process 
+        else if (msg->type == SSPI_CMD_IPERF_START){
+                
+                char buf [128]; 
+                sprintf(buf, 
+                        "/home/vad/mptcp-tools/use_mptcp/use_mptcp.sh iperf -c 13.0.0.2 -t %d", 
+                                    msg->value);
+                l_info ("%s",buf);  
+                if (fork() == 0){
+                    int status =  system (buf);
+                    // maybe should try with execl () instead of system()
+                    // execl("/path/to/foo", "foo", "arg1", "arg2", "arg3", 0);
+                    exit (status);  
+                }
         }  
         else{
                 // just inform user, continue to reading 
-                l_info("Uknown ns3 message type : %d", (int)msg->type);
+                l_info("Uknown ns3 message : %d", (int)msg->type);
         }
       
         return EXIT_SUCCESS; 
@@ -571,6 +589,7 @@ static int sspi_init(struct mptcpd_pm *pm)
         if (mptcpd_kpm_get_limits(pm, sspi_get_limits_callback,
                                   NULL) != 0)
             l_info("Unable to get limits IP addresses.");
+        
         
         /**
          * create separate thread to listening ingomming data,

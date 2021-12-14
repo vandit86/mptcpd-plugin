@@ -42,7 +42,7 @@ static void close_read_thread(void){
 
         // prepare msg for exit listening thread 
         struct sspi_ns3_message msg = {
-                        .type = SSPI_COMM_END,
+                        .type = SSPI_CMD_END,
                         .value = 0
                         }; 
         
