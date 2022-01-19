@@ -16,8 +16,9 @@ enum{
     SSPI_CMD_TEST=0,    // \00 test command
     SSPI_CMD_DEL,       // \01 delete one path (id in value)
     
-    // enable wifi as backup (val = 1) disable (val = 0)
-    SSPI_CMD_FLAG,      
+    // SET BACKUP FLAG ON mptcp ENDPOINT (val = 1,2,..)
+    SSPI_CMD_BACKUP_FLAG_ON,      
+    SSPI_CMD_CLEAR_FLAGS,      
     
     SSPI_CMD_WIFI_SNR,      // \03 dump addreses mptcp 
     

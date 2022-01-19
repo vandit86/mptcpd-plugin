@@ -134,28 +134,29 @@ struct sspi_pass_info
 
 
 /**
- *      Get address callback, set path to backup 
+ *      Get address, SET FALG callback, 
+ *      USED TO SET LAG ON MPTCP endpoint 
+ *      Can be used during mptcp session 
+ *      for example :  echo -en "\02\0\0\0\01\0\0\0\c" > /tmp/mptcp-ns3-fifo
+ *      will set endpoint (id = 2) with BAKUP flag 
 */
 __attribute__((unused)) 
-static void sspi_get_addr_callback(struct mptcpd_addr_info const *info,
+static void sspi_set_flag_callback(struct mptcpd_addr_info const *info,
                                                            void *in)
 {
         struct sspi_pass_info* pi = (struct sspi_pass_info *)in;
         struct mptcpd_pm *pm = (struct mptcpd_pm *)pi->pm;
         struct sockaddr *laddr = (struct sockaddr *)&info->addr;
 
-        sspi_print_sock_addr((struct sockaddr *)&info->addr);
+        // sspi_print_sock_addr((struct sockaddr *)&info->addr);
         l_info("index = %d, id = %d, flags=%d",
                info->index, info->id, info->flags);
-        // set to backup
+        // // set to backup
         
         // static mptcpd_flags_t const flags = 
         //                 (pi->data)? MPTCPD_ADDR_FLAG_BACKUP : 0 ;
-        mptcpd_flags_t flags; 
-        if ((int)pi->data) flags = MPTCPD_ADDR_FLAG_BACKUP; 
-        else flags = 0 ; 
-
-        l_info("data = %d", (int) pi->data); 
+        mptcpd_flags_t flags = (uint32_t) pi->data; 
+        l_info("FLAG received = %d", (int) pi->data); 
 
         if (mptcpd_kpm_set_flags(pm, laddr, flags) != 0)
         {
@@ -251,18 +252,34 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                         l_info ("Endpoint %d Removed", id); 
         }
 
-        // set path as backup 
-        else if (msg->type == SSPI_CMD_FLAG){
-                
+        // set Endpoint with (id = msg-value) with backup flag
+        else if (msg->type == SSPI_CMD_BACKUP_FLAG_ON){
                 //  subflow ID to be changed 
-                mptcpd_aid_t id = 2;  
+                mptcpd_aid_t id = (uint8_t) msg->value;  
                 // struct sspi_pass_info pi; 
                 pi.pm = (struct mptcpd_pm *)in; 
-                pi.data = (int) msg->value; 
+                pi.data = (int) MPTCPD_ADDR_FLAG_BACKUP; // BACLUP flag
 
                 if (mptcpd_kpm_get_addr(pm, 
                                         id,
-                                        sspi_get_addr_callback, 
+                                        sspi_set_flag_callback, 
+                                        (void *)&pi) != 0)
+                {
+                    l_error("Unable to get addr with id=: %d", id);
+                }
+        }
+
+        // set Endpoint with (id = msg-value) with backup flag
+        else if (msg->type == SSPI_CMD_CLEAR_FLAGS){
+                //  subflow ID to be changed 
+                mptcpd_aid_t id = (uint8_t) msg->value;  
+                // struct sspi_pass_info pi; 
+                pi.pm = (struct mptcpd_pm *)in; 
+                pi.data = (int) 0; // CLEAR flag
+
+                if (mptcpd_kpm_get_addr(pm, 
+                                        id,
+                                        sspi_set_flag_callback, 
                                         (void *)&pi) != 0)
                 {
                     l_error("Unable to get addr with id=: %d", id);
@@ -273,7 +290,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
 
                 l_info ("SNR : %d", msg->value); 
                 // if ( mptcpd_kpm_dump_addrs(pm, 
-                //         sspi_get_addr_callback, (void*)in) !=0){
+                //         sspi_set_flag_callback, (void*)in) !=0){
                 //                 l_error ("Unable dump adrese"); 
                 //         }
         }
