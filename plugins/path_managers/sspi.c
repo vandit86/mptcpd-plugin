@@ -214,11 +214,33 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
         
         // cmd from mptcpd to stop thread (called on Cntr+C)   
         if (msg->type == SSPI_CMD_END) return -1 ;
-        
-        // test cmds
-        else if ( msg->type == SSPI_CMD_TEST){
-              l_info("Test cmd received");   
-               
+
+        /* will be used as copy on write on other processes*/
+        char buf[128];
+
+        /* Receive Init MSG : IPC connection OK 
+           START tcpdump recording durring the simulation */
+        if ( msg->type == SSPI_CMD_TEST){
+              l_info("Test IPC connection: OK ");
+              l_info("Start TCPDUMP");
+              if (fork() == 0)
+              {
+                      sprintf(buf,
+                              "tcpdump -G %d -W 1 -w dump-0.pcap -i eth0",
+                              msg->value);
+                      l_info("%s", buf);
+                      int status = system(buf);
+                      exit(status);
+              }
+              if (fork() == 0)
+              {
+                      sprintf(buf,
+                              "tcpdump -G %d -W 1 -w dump-1.pcap -i eth1",
+                              msg->value);
+                      l_info("%s", buf);
+                      int status = system(buf);
+                      exit(status);
+              }
         }
         // remove addr 
         else if (msg->type == SSPI_CMD_DEL ){
@@ -259,17 +281,17 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
         // stert generate traffic in separate process 
         else if (msg->type == SSPI_CMD_IPERF_START){
                 
-                char buf [128]; 
-                sprintf(buf, 
-                        "/home/vad/mptcp-tools/use_mptcp/use_mptcp.sh iperf -c 13.0.0.2 -t %d", 
-                                    msg->value);
-                l_info ("%s",buf);  
                 if (fork() == 0){
-                    int status =  system (buf);
-                    // maybe should try with execl () instead of system()
-                    // execl("/path/to/foo", "foo", "arg1", "arg2", "arg3", 0);
-                    exit (status);  
+                        sprintf(buf,
+                                "/home/vad/mptcp-tools/use_mptcp/use_mptcp.sh iperf -c 13.0.0.2 -e -i1 -t %d",
+                                msg->value);
+                        l_info("%s",buf); 
+                        int status = system(buf);
+                        // maybe should try with execl () instead of system()
+                        // execl("/path/to/foo", "foo", "arg1", "arg2", "arg3", 0);
+                        exit(status);  
                 }
+
         }  
         else{
                 // just inform user, continue to reading 
