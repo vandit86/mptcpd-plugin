@@ -221,8 +221,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
 
         /* Receive Init MSG : IPC connection OK 
            START tcpdump recording durring the simulation */
-        if ( msg->type == SSPI_CMD_TEST){
-              l_info("Test IPC connection: OK ");
+        if ( msg->type == SSPI_CMD_TCPDUMP){
               l_info("Start TCPDUMP");
               if (fork() == 0)
               {
@@ -275,7 +274,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                 mptcpd_aid_t id = (uint8_t) msg->value;  
                 // struct sspi_pass_info pi; 
                 pi.pm = (struct mptcpd_pm *)in; 
-                pi.data = (int) 0; // CLEAR flag
+                pi.data = (int) 0;          // CLEAR all flags
 
                 if (mptcpd_kpm_get_addr(pm, 
                                         id,

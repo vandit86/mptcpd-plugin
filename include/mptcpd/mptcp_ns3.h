@@ -4,6 +4,9 @@
 /*  FIFO NAME   */
 #define SSPI_FIFO_PATH "/tmp/mptcp-ns3-fifo"
 
+#define SSPI_IFACE_LTE 1        // LTE endpoint 
+#define SSPI_IFACE_WLAN 2       // 802.11 endpoint 
+
 /*  MESSAGE MAX SIZE    */
 int  BFSZ = 256;
 
@@ -13,18 +16,17 @@ int  BFSZ = 256;
     echo -en "\02\0\0\0\02\0\0\0\c" > /tmp/mptcp-ns3-fifo
 */
 enum{
-    SSPI_CMD_TEST=0,    // \00 test command
-    SSPI_CMD_DEL,       // \01 delete one path (id in value)
+    SSPI_CMD_TCPDUMP=0,     // 00 run TCPDUMP during simulation time - 1   
+    SSPI_CMD_DEL,           // 01 delete one path (endpoint id in value)
     
-    // SET BACKUP FLAG ON mptcp ENDPOINT (val = 1,2,..)
-    SSPI_CMD_BACKUP_FLAG_ON,      
-    SSPI_CMD_CLEAR_FLAGS,      
+    SSPI_CMD_BACKUP_FLAG_ON,// SET BACKUP FLAG ON mptcp ENDPOINT       
+    SSPI_CMD_CLEAR_FLAGS,   // Clear all flags on endpoint (val)   
     
-    SSPI_CMD_WIFI_SNR,      // \03 dump addreses mptcp 
+    SSPI_CMD_WIFI_SNR,      //  dump addreses mptcp 
     
-    SSPI_CMD_END,      // \ stop receiving tread on mptcpd
-    SSPI_CMD_IPERF_START,  // start iperf ; VAL -> time is sec
-    SSPI_CMD_LAST       // last command value 
+    SSPI_CMD_END,           // stop receiving tread on mptcpd (used by main)
+    SSPI_CMD_IPERF_START,   // start iperf traf gen; VAL -> time is sec
+    SSPI_CMD_LAST           // last command value 
 }; 
 
 /*  MESSAGE STRUCT  */
