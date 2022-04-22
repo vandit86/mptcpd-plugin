@@ -226,7 +226,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
               if (fork() == 0)
               {
                       sprintf(buf,
-                              "tcpdump -G %d -W 1 -w dump-0.pcap -i eth0",
+                              "tcpdump -G %d -W 1 -s 100 -w dump-0.pcap -i eth0",
                               msg->value);
                       l_info("%s", buf);
                       int status = system(buf);
@@ -235,7 +235,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
               if (fork() == 0)
               {
                       sprintf(buf,
-                              "tcpdump -G %d -W 1 -w dump-1.pcap -i eth1",
+                              "tcpdump -G %d -W 1 -s 100 -w dump-1.pcap -i eth1",
                               msg->value);
                       l_info("%s", buf);
                       int status = system(buf);
@@ -299,6 +299,7 @@ static int sspi_msg_pars (struct sspi_ns3_message* msg, void const *in){
                 
                 if (fork() == 0){
                         sprintf(buf,
+                                // "/home/vad/mptcp-tools/use_mptcp/use_mptcp.sh iperf -c 13.0.0.2 -e -i1 -n %d",
                                 "/home/vad/mptcp-tools/use_mptcp/use_mptcp.sh iperf -c 13.0.0.2 -e -i1 -t %d",
                                 msg->value);
                         l_info("%s",buf); 
